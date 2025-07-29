@@ -115,17 +115,43 @@ func (r *Reader) ScanAvailableChannels(files []string) (map[uint16]int, error) {
 // TODO: refactor and reduce logging
 func (r *Reader) scanAvailableChannelsParallel(files []string) (map[uint16]int, error) {
 	channelCounts := make(map[uint16]int)
-	totalFiles := len(files)
+	totalAmountFiles := len(files)
 
 	// Process files in parallel with limited concurrency
-	const maxWorkers = 6 // Optimal for most systems
+	const maxWorkers = 6
 	semaphore := make(chan struct{}, maxWorkers)
-	resultChan := make(chan map[uint16]int, totalFiles)
-	errorChan := make(chan error, totalFiles)
+	resultChan := make(chan map[uint16]int, totalAmountFiles)
+	errorChan := make(chan error, totalAmountFiles)
 
 	var wg sync.WaitGroup
 
-	// Start workers
+	r.startWorkers(files, &wg, semaphore, resultChan, errorChan, totalAmountFiles)
+
+	// Close channels when all workers are done
+	go func() {
+		wg.Wait()
+		close(resultChan)
+		close(errorChan)
+	}()
+
+	channelCounts = mergeResults(resultChan)
+
+	fmt.Printf("Scanning complete: found %d unique channels across all files\n\n", len(channelCounts))
+	return channelCounts, nil
+}
+
+func mergeResults(resultChan <-chan map[uint16]int) map[uint16]int {
+	channelCounts := make(map[uint16]int)
+
+	for localCounts := range resultChan {
+		for channel, count := range localCounts {
+			channelCounts[channel] += count
+		}
+	}
+	return channelCounts
+}
+
+func (r *Reader) startWorkers(files []string, wg *sync.WaitGroup, semaphore chan struct{}, resultChan chan<- map[uint16]int, errorChan chan<- error, totalAmountFiles int) {
 	for i, filepath := range files {
 		wg.Add(1)
 		go func(filePath string, fileIndex int) {
@@ -135,7 +161,7 @@ func (r *Reader) scanAvailableChannelsParallel(files []string) (map[uint16]int, 
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			fmt.Printf("Scanning file: %s [%d/%d]\n", filePath, fileIndex+1, totalFiles)
+			fmt.Printf("Scanning file: %s [%d/%d]\n", filePath, fileIndex+1, totalAmountFiles)
 
 			localCounts, err := r.ScanSingleFileOptimized(filePath)
 			if err != nil {
@@ -161,23 +187,6 @@ func (r *Reader) scanAvailableChannelsParallel(files []string) (map[uint16]int, 
 			resultChan <- localCounts
 		}(filepath, i)
 	}
-
-	// Close channels when all workers are done
-	go func() {
-		wg.Wait()
-		close(resultChan)
-		close(errorChan)
-	}()
-
-	// Merge results
-	for localCounts := range resultChan {
-		for channel, count := range localCounts {
-			channelCounts[channel] += count
-		}
-	}
-
-	fmt.Printf("Scanning complete: found %d unique channels across all files\n\n", len(channelCounts))
-	return channelCounts, nil
 }
 
 // ProcessFileOptimized processes a single file with streaming and filtering for better performance
