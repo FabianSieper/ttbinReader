@@ -108,51 +108,11 @@ func (r *Reader) ScanAvailableChannels(files []string) (map[uint16]int, error) {
 	totalFiles := len(files)
 
 	fmt.Printf("Scanning %d files to discover available channels (parallel processing)...\n", totalFiles)
-
-	// For small numbers of files, use sequential processing to avoid overhead
-	if totalFiles <= 4 {
-		return r.scanAvailableChannelsSequential(files)
-	}
-
-	// Use parallel processing for larger file sets
 	return r.scanAvailableChannelsParallel(files)
 }
 
-// scanAvailableChannelsSequential processes files one by one (for small file sets)
-func (r *Reader) scanAvailableChannelsSequential(files []string) (map[uint16]int, error) {
-	channelCounts := make(map[uint16]int)
-	totalFiles := len(files)
-
-	for i, filepath := range files {
-		fmt.Printf("Scanning file: %s [%d/%d]\n", filepath, i+1, totalFiles)
-
-		localCounts, err := r.ScanSingleFileOptimized(filepath)
-		if err != nil {
-			fmt.Printf("  ✗ Error scanning %s: %v\n", filepath, err)
-			continue // Skip files with errors
-		}
-
-		// Merge results
-		channelsFound := 0
-		for channel, count := range localCounts {
-			channelCounts[channel] += count
-			if count > 0 {
-				channelsFound++
-			}
-		}
-
-		if channelsFound > 0 {
-			fmt.Printf("  ✓ Found %d channels with data in %s\n", channelsFound, filepath)
-		} else {
-			fmt.Printf("  ○ No channels found in %s\n", filepath)
-		}
-	}
-
-	fmt.Printf("Scanning complete: found %d unique channels across all files\n\n", len(channelCounts))
-	return channelCounts, nil
-}
-
 // scanAvailableChannelsParallel processes files in parallel batches
+// TODO: refactor and reduce logging
 func (r *Reader) scanAvailableChannelsParallel(files []string) (map[uint16]int, error) {
 	channelCounts := make(map[uint16]int)
 	totalFiles := len(files)

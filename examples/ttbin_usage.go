@@ -8,10 +8,14 @@ import (
 )
 
 func readInTtbinFolder() string {
-	fmt.Println("Enter path to folder containing ttbin files")
+	fmt.Println("Enter path to folder containing ttbin files [data]")
 	var ttbinFolder string
 
 	fmt.Scanln(&ttbinFolder)
+	if ttbinFolder == "" {
+		ttbinFolder = "data"
+	}
+
 	fmt.Println("Processing ttbin files in folder:", ttbinFolder)
 
 	return ttbinFolder
@@ -43,7 +47,6 @@ func main() {
 
 	// Scan for available channels
 	fmt.Println("\nScanning files for available channels...")
-	// TODO: improve scanChannels method
 	channels, err := processor.ScanChannels(files)
 	if err != nil {
 		fmt.Printf("Failed to scan channels: %v\n", err)
