@@ -143,56 +143,9 @@ func (p *Processor) SetDataDirectory(dataDirectory string) {
 	p.reader.DataDirectory = dataDirectory
 }
 
-// ProcessFilesWithCallback processes files and calls a callback function for each TimeTag
-// This is a convenience method for simple processing without channels
-func (p *Processor) ProcessFilesWithCallback(files []string, channelFilter []uint16, callback func(TimeTag)) error {
-	timeTagChan := make(chan TimeTag, 1000)
-
-	// Start processing in a goroutine
-	go func() {
-		err := p.ProcessFiles(files, channelFilter, timeTagChan)
-		if err != nil {
-			// Log error or handle it appropriately
-			fmt.Printf("Error processing files: %v\n", err)
-		}
-	}()
-
-	// Process received time tags
-	for tag := range timeTagChan {
-		callback(tag)
-	}
-
-	return nil
-}
-
 // GetFileInfo returns information about ttbin files without processing them
 type FileInfo struct {
 	Filename string
 	Size     int64
 	Channels map[uint16]int
-}
-
-// QuickScan performs a quick scan of a single file to get basic information
-func (p *Processor) QuickScan(filename string) (*FileInfo, error) {
-	channels, err := p.reader.ScanSingleFile(filename)
-	if err != nil {
-		return nil, err
-	}
-
-	file, err := p.reader.openAndValidateFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	stat, err := file.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	return &FileInfo{
-		Filename: filename,
-		Size:     stat.Size(),
-		Channels: channels,
-	}, nil
 }
