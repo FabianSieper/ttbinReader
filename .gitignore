@@ -1,0 +1,8 @@
+# Ignore all .ttbin files everywhere
+*.ttbin
+*/*.ttbin
+**/*.ttbin
+
+# Ignore data directories
+data/
+*/data/
